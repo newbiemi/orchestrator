@@ -1,0 +1,126 @@
+# Orchestrator Pipeline Configuration
+# ─────────────────────────────────────
+# Schema per pipeline:
+#   description:        Human-readable label
+#   triggers:           List of [cli, cron, api]
+#   memory_context_n:   How many past runs to inject as context (Phase 7, default 5)
+#   prompt_optimizer:   Phase 8 settings
+#     enabled:          true/false
+#     threshold:        Min score to accept output (1–10, default 7)
+#     max_retries:      Max mutation retries per run (default 2)
+#   nodes:              Ordered list of node definitions
+#     name:             Unique node identifier (used in logs)
+#     type:             claude | ollama | eval
+#     model:            Model ID string
+#     system:           System prompt (no hardcoded prompts in core — lives here)
+#     prompt_template:  User message template; {input} is replaced with prior node output
+#     max_tokens:       (Claude only) token cap for response
+#     temperature:      Sampling temperature (0.0–1.0)
+#     threshold:        (eval nodes only) min score before triggering optimizer retry
+
+pipelines:
+
+  trading:
+    description: "EOD price action → Ollama summary → Claude BUY/HOLD/SELL decision"
+    triggers:
+      - cli
+      - cron
+    memory_context_n: 5
+    prompt_optimizer:
+      enabled: true
+      threshold: 7
+      max_retries: 2
+    nodes:
+      - name: summarizer
+        type: ollama
+        model: qwen2.5-coder
+        system: >
+          You are a financial data analyst. Summarize stock price action clearly and
+          concisely — include key levels, trend direction, volume context, and any
+          notable patterns. Be factual, no opinions.
+        prompt_template: |
+          Summarize the following EOD price data:
+
+          {input}
+        temperature: 0.1
+
+      - name: decision
+        type: claude
+        model: claude-sonnet-4-5
+        system: >
+          You are a quantitative trading analyst. Given a price summary, reply with
+          exactly one of: BUY, HOLD, or SELL — followed by a one-sentence reason.
+          Format: DECISION: <BUY|HOLD|SELL> — <reason>
+        prompt_template: |
+          Based on this price summary, provide a trading decision:
+
+          {input}
+        max_tokens: 256
+        temperature: 0.2
+
+      - name: eval
+        type: eval
+        threshold: 7
+
+  context_summarizer:
+    description: "Compress project files into a structured CLAUDE.md-ready summary"
+    triggers:
+      - cli
+    memory_context_n: 3
+    prompt_optimizer:
+      enabled: false
+      threshold: 7
+      max_retries: 1
+    nodes:
+      - name: chunk_summarizer
+        type: ollama
+        model: qwen2.5-coder
+        system: >
+          You summarize source code files and documentation concisely. Preserve key
+          function names, classes, patterns, and dependencies. Omit boilerplate.
+        prompt_template: |
+          Summarize the following project files:
+
+          {input}
+        temperature: 0.1
+
+      - name: structured_summary
+        type: claude
+        model: claude-sonnet-4-5
+        system: >
+          You produce structured project summaries formatted for CLAUDE.md files.
+          Include: purpose, key files, tech stack, important patterns, gotchas.
+          Use markdown headers. Be concise — this summary is read before every session.
+        prompt_template: |
+          Create a structured CLAUDE.md-ready project summary from these file summaries:
+
+          {input}
+        max_tokens: 2048
+        temperature: 0.1
+
+      - name: eval
+        type: eval
+        threshold: 6
+
+  px_dashboard:
+    description: "Sync PX_data_2026 spreadsheet → MotherDuck, then generate a Claude sync report"
+    triggers:
+      - cli
+      - api
+    memory_context_n: 3
+    prompt_optimizer:
+      enabled: false
+      threshold: 7
+      max_retries: 1
+    nodes: []   # handled by PxDashboardPipeline Python class
+
+  psych_report:
+    description: "Placeholder — future psych/assessment pipeline"
+    triggers:
+      - api
+    memory_context_n: 5
+    prompt_optimizer:
+      enabled: false
+      threshold: 7
+      max_retries: 2
+    nodes: []

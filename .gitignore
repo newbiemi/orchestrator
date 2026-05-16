@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Environment
+.env
+
+# Runtime databases
+context/runs.db
+context/memory.db
+core/logs/
+
+# Generated artifacts
+context/latest.xml
+
+# OS
+.DS_Store
+Thumbs.db

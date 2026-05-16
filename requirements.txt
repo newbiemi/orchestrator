@@ -1,0 +1,9 @@
+anthropic>=0.89.0
+httpx>=0.28.0
+pyyaml>=6.0
+ruamel.yaml>=0.18.0
+yfinance>=1.2.0
+fastapi>=0.135.0
+uvicorn>=0.43.0
+rich>=14.0.0
+python-dotenv>=1.0.0
