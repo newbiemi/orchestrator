@@ -3,8 +3,8 @@ Trading pipeline — Phase 3
 
 Flow:
   1. Fetch EOD price data via yfinance
-  2. OllamaNode (qwen2.5-coder) — summarize price action
-  3. ClaudeNode (claude-sonnet-4-5) — BUY / HOLD / SELL decision
+  2. PythonNode (summarize_prices) — deterministic template summary (no Ollama)
+  3. ClaudeNode (model from pipelines.yaml defaults) — BUY / HOLD / SELL decision
   4. Log everything to SQLite (via core/logger.py)
   5. Optional Alpaca execution flag (ALPACA_EXECUTE=true in .env)
 
@@ -13,6 +13,7 @@ CLI:
 """
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import yfinance as yf
@@ -21,8 +22,8 @@ from rich.console import Console
 
 from core.pipeline import Pipeline
 from core.claude_node import ClaudeNode
-from core.ollama_node import OllamaNode
-from core.config import load_pipeline_config
+from core.python_node import PythonNode
+from core.config import load_pipeline_config, get_default_claude_model
 
 load_dotenv()
 console = Console(legacy_windows=False)
@@ -98,6 +99,87 @@ def fetch_eod_data(ticker: str, days: int = 30) -> str:
     return "\n".join(lines)
 
 
+# ── Deterministic price summarizer (replaces OllamaNode) ─────────────────────
+
+_ROW_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d,]+)"
+)
+_RETURN_RE  = re.compile(r"30d Return:\s*([+\-][\d.]+)%")
+_RANGE_RE   = re.compile(r"30d High:\s*([\d.]+)\s*\|\s*30d Low:\s*([\d.]+)")
+_AVGVOL_RE  = re.compile(r"Avg Volume:\s*([\d,]+)")
+
+
+def summarize_prices(input_text: str) -> str:
+    """
+    Deterministic template summary of the OHLCV text from fetch_eod_data().
+    Returns a compact structured block Claude can directly reason over.
+
+    This replaces the Ollama summarizer node — identical information content,
+    zero variance across runs (algorithm-first, per projectbrief.md).
+    """
+    lines = input_text.splitlines()
+
+    # Extract header fields
+    ticker     = next((l.split(":", 1)[1].strip() for l in lines if l.startswith("Ticker:")), "?")
+    period     = next((l.split(":", 1)[1].strip() for l in lines if l.startswith("Period:")),  "?")
+    ret_m      = next((_RETURN_RE.search(l) for l in lines if _RETURN_RE.search(l)),  None)
+    range_m    = next((_RANGE_RE.search(l)  for l in lines if _RANGE_RE.search(l)),   None)
+    avgvol_m   = next((_AVGVOL_RE.search(l) for l in lines if _AVGVOL_RE.search(l)),  None)
+
+    ret_str    = f"{ret_m.group(1)}%" if ret_m else "N/A"
+    high_str   = range_m.group(1) if range_m else "N/A"
+    low_str    = range_m.group(2) if range_m else "N/A"
+    avgvol_str = avgvol_m.group(1) if avgvol_m else "N/A"
+
+    # Parse individual OHLCV rows
+    rows = [_ROW_RE.match(l) for l in lines]
+    rows = [r for r in rows if r]
+    closes = [float(r.group(5)) for r in rows]
+    dates  = [r.group(1) for r in rows]
+    vols   = [int(r.group(6).replace(",", "")) for r in rows]
+
+    # Recent 5-day trend
+    if len(closes) >= 5:
+        c_first, c_last = closes[-5], closes[-1]
+        d_first, d_last = dates[-5], dates[-1]
+        pct_5d = ((c_last / c_first) - 1) * 100
+        direction = "UP" if pct_5d > 0.5 else ("DOWN" if pct_5d < -0.5 else "FLAT")
+        trend_str = (
+            f"{direction} — {d_first}→{d_last}  "
+            f"${c_first:.2f}→${c_last:.2f} ({pct_5d:+.1f}%)"
+        )
+        recent_closes = "  ".join(f"${c:.2f}" for c in closes[-5:])
+    else:
+        trend_str = "N/A (insufficient data)"
+        recent_closes = "  ".join(f"${c:.2f}" for c in closes[-5:])
+
+    # Volume context (last session vs average)
+    if closes and vols:
+        avg_vol = sum(vols) / len(vols)
+        last_vol = vols[-1]
+        vol_ratio = last_vol / avg_vol if avg_vol else 1.0
+        vol_note = (
+            "above-average volume" if vol_ratio > 1.2
+            else ("below-average volume" if vol_ratio < 0.8 else "average volume")
+        )
+    else:
+        vol_note = "N/A"
+
+    if not closes:
+        return f"PRICE SUMMARY — {ticker} ({period})\nNo price rows parsed from input."
+
+    summary = (
+        f"PRICE SUMMARY — {ticker} ({period})\n"
+        f"Last Close: ${closes[-1]:.2f}  |  {period} Return: {ret_str}\n"
+        f"Price Range: ${low_str}–${high_str}  |  Avg Vol: {avgvol_str}\n"
+        f"\n"
+        f"5-Day Trend: {trend_str}\n"
+        f"Recent closes (5d): {recent_closes}\n"
+        f"Last session: {vol_note}\n"
+    )
+    return summary
+
+
 # ── Alpaca execution (optional) ────────────────────────────────────────────────
 
 def maybe_execute_alpaca(ticker: str, decision: str) -> None:
@@ -128,15 +210,10 @@ class TradingPipeline(Pipeline):
         summarizer_cfg = nodes_cfg.get("summarizer", {})
         decision_cfg   = nodes_cfg.get("decision", {})
 
-        summarizer = OllamaNode(
-            model=summarizer_cfg.get("model", "qwen2.5-coder"),
-            system=summarizer_cfg.get("system", "You summarize stock price data concisely."),
-            prompt_template=summarizer_cfg.get("prompt_template"),
-            temperature=float(summarizer_cfg.get("temperature", 0.1)),
-        )
+        summarizer = PythonNode(fn="pipelines.trading.summarize_prices")
 
         decision = ClaudeNode(
-            model=decision_cfg.get("model", "claude-sonnet-4-5"),
+            model=decision_cfg.get("model") or get_default_claude_model(),
             system=decision_cfg.get("system", "You are a trading analyst. Reply BUY, HOLD, or SELL with a reason."),
             prompt_template=decision_cfg.get("prompt_template"),
             max_tokens=int(decision_cfg.get("max_tokens", 256)),

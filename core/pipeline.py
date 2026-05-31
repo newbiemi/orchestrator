@@ -235,7 +235,11 @@ class Pipeline:
             return
 
         _, first_node = nodes[0]
-        first_node.system = f"{first_node.system}\n\n{context_block}"
+        if isinstance(first_node, ClaudeNode):
+            # Keep base system stable for cache prefix; memory goes in its own block
+            first_node.memory_context = context_block
+        else:
+            first_node.system = f"{first_node.system}\n\n{context_block}"
         console.print(f"  [dim]Injected {len(memories)} memories into '{nodes[0][0]}'[/dim]")
 
     def run(self, initial_input: str, **kwargs) -> PipelineResult:
@@ -271,6 +275,18 @@ def _node_from_config(cfg: dict) -> tuple[str, "ClaudeNode | OllamaNode | EvalMa
     if node_type == "eval":
         threshold = int(cfg.get("threshold", 7))
         return name, EvalMarker(threshold=threshold)
+
+    if node_type == "subprocess":
+        from .subprocess_node import SubprocessNode
+        return name, SubprocessNode(
+            command=cfg.get("command", ""),
+            timeout=int(cfg.get("timeout", 600)),
+            keep_keywords=cfg.get("keep_keywords") or None,
+        )
+
+    if node_type == "python":
+        from .python_node import PythonNode
+        return name, PythonNode(fn=cfg["fn"], **kwargs)
 
     raise ValueError(f"Unknown node_type {node_type!r} in node {name!r}")
 

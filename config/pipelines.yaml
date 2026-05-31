@@ -18,10 +18,13 @@
 #     temperature:      Sampling temperature (0.0–1.0)
 #     threshold:        (eval nodes only) min score before triggering optimizer retry
 
+defaults:
+  claude_model: claude-sonnet-4-6   # single source of truth — bump here only
+
 pipelines:
 
   trading:
-    description: "EOD price action → Ollama summary → Claude BUY/HOLD/SELL decision"
+    description: "EOD price action → Python template summary → Claude BUY/HOLD/SELL decision"
     triggers:
       - cli
       - cron
@@ -32,21 +35,14 @@ pipelines:
       max_retries: 2
     nodes:
       - name: summarizer
-        type: ollama
-        model: qwen2.5-coder
-        system: >
-          You are a financial data analyst. Summarize stock price action clearly and
-          concisely — include key levels, trend direction, volume context, and any
-          notable patterns. Be factual, no opinions.
-        prompt_template: |
-          Summarize the following EOD price data:
-
-          {input}
-        temperature: 0.1
+        type: python
+        fn: pipelines.trading.summarize_prices
+        # Deterministic template — replaces OllamaNode. Parses OHLCV table from
+        # fetch_eod_data() and emits a structured block Claude can reason over.
+        # Algorithm-first: zero variance, no Ollama dependency on this step.
 
       - name: decision
         type: claude
-        model: claude-sonnet-4-5
         system: >
           You are a quantitative trading analyst. Given a price summary, reply with
           exactly one of: BUY, HOLD, or SELL — followed by a one-sentence reason.
@@ -86,7 +82,6 @@ pipelines:
 
       - name: structured_summary
         type: claude
-        model: claude-sonnet-4-5
         system: >
           You produce structured project summaries formatted for CLAUDE.md files.
           Include: purpose, key files, tech stack, important patterns, gotchas.
@@ -124,3 +119,35 @@ pipelines:
       threshold: 7
       max_retries: 2
     nodes: []
+
+  trading_scan_daily:
+    description: "Run crypto scan (--once) → llama3.2:3b market digest → Telegram via deliver_scan.py"
+    triggers:
+      - cli
+      - cron
+    memory_context_n: 0   # deterministic output, no memory injection
+    prompt_optimizer:
+      enabled: false
+      threshold: 7
+      max_retries: 1
+    nodes:
+      - name: run_scan
+        type: subprocess
+        # Set BOT_SCRIPT env var in .env, or replace with absolute path
+        command: "python $BOT_SCRIPT --once"
+        timeout: 120
+        keep_keywords:
+          - "BUY"
+          - "SELL"
+          - "HOLD"
+          - "Regime"
+          - "SCAN @"
+          - "Portfolio"
+
+      - name: market_summary
+        type: python
+        fn: deliver_scan.interpret_scan
+        # Deterministic cross-asset digest — replaces llama3.2:3b Ollama node.
+        # Tallies BUY/SELL counts per asset class, identifies dominant theme,
+        # and surfaces highest-confidence signal in 2-3 plain sentences.
+        # Note: deliver_scan.py also calls interpret_scan() directly in main().
