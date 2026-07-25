@@ -267,7 +267,19 @@ def _node_from_config(cfg: dict) -> tuple[str, "ClaudeNode | OllamaNode | EvalMa
     if node_type == "claude":
         if "max_tokens" in cfg:
             kwargs["max_tokens"] = int(cfg["max_tokens"])
-        return name, ClaudeNode(**kwargs)
+        claude = ClaudeNode(**kwargs)
+        # `tier` is opt-in: absent (or "claude") keeps the original behaviour
+        # byte-for-byte, so existing pipelines are unaffected by this feature.
+        tier = str(cfg.get("tier", "claude")).lower()
+        if tier == "claude":
+            return name, claude
+        from .routed_node import DEFAULT_TASK_TYPE, RoutedNode
+        return name, RoutedNode(
+            tier=tier,
+            claude_node=claude,
+            task_type=cfg.get("task_type", DEFAULT_TASK_TYPE),
+            gate=cfg.get("gate"),
+        )
 
     if node_type == "ollama":
         return name, OllamaNode(**kwargs)

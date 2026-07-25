@@ -27,7 +27,8 @@
 | File | Purpose |
 |------|---------|
 | `pipeline.py` | Base `Pipeline` class, `_PipelineRunner` (per-run state), `ConfiguredPipeline` (YAML-driven) |
-| `claude_node.py` | Wraps Anthropic SDK. Lazy client, two-block system prompt for caching, Ollama fallback |
+| `claude_node.py` | Wraps Anthropic SDK. Lazy client, two-block system prompt for caching. Fallback when `ANTHROPIC_API_KEY` is absent: Groq/Gemini via `llmroute`, then Ollama |
+| `routed_node.py` | **Tier routing** — wraps a ClaudeNode so a step runs on the free chain and escalates to Claude only when an algorithmic gate fails. Selected per node via `tier:` in pipelines.yaml |
 | `ollama_node.py` | Sync httpx calls to Ollama. 90s timeout, 1 retry, circuit breaker |
 | `python_node.py` | **Algorithm node** — calls a registered Python callable (`fn: module.path`) as a pipeline step. Returns structured JSON or str as NodeResult. Zero LLM, zero variance. Use for deterministic transforms. |
 | `config.py` | Loads `pipelines.yaml`. `get_default_claude_model()` is the single model source of truth |
@@ -62,8 +63,9 @@ runner.py
 - **Algorithm-first**: For deterministic transforms (structured data → template), use `type: python` + a registered callable. Only use `type: ollama` for genuinely fuzzy tasks (code compression, creative content). This follows projectbrief.md's "Algorithm-first for automation" principle.
 - **PythonNode contract**: `fn` is a dotted path (`module.fn`). Callable signature: `fn(input_text: str) -> dict | str`. Dict → JSON-serialized; str → passed through. `model="python"` in logs.
 - **Prompt caching**: `ClaudeNode` sends system as a two-block list — Block 1 (base, `cache_control: ephemeral`) + Block 2 (memory, not cached). Run twice within 5 min to get a cache hit.
-- **Ollama fallback**: If `ANTHROPIC_API_KEY` is absent, `ClaudeNode` transparently delegates to `OllamaNode`. Model field in logs shows `<model> [claude-fallback]`.
-- **Circuit breaker**: After 3 consecutive Ollama failures, fail fast for 60s instead of waiting 90s each time.
+- **Free fallback**: If `ANTHROPIC_API_KEY` is absent, `ClaudeNode` tries the hosted free APIs first (Groq → Gemini, via `llmroute`), then delegates to `OllamaNode`. Model field in logs shows `<backend> [claude-fallback]`.
+- **Circuit breaker**: After 3 consecutive Ollama failures, fail fast for 60s instead of waiting 90s each time. Ollama stays a real `OllamaNode` rather than an `llmroute` backend **specifically to keep this breaker** — do not "simplify" it into the chain.
+- **Tier routing (cost-first)**: A `type: claude` node may set `tier: free` or `tier: free-then-verify` plus a `task_type` and an algorithmic `gate` (min/max chars, JSON shape, required keys, forbidden patterns). `tier` is opt-in — a node without it behaves exactly as before. The gate must never be an LLM call; that would spend the tokens the tier exists to save. Escalation costs a free call *plus* a Claude call, so check `llmroute.telemetry.recommendations()` and flip any node escalating on >30% of runs to `tier: claude`. Routing data lives in `~/.claude/routing/model-registry.json`.
 
 ## Environment Variables
 

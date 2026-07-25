@@ -10,7 +10,22 @@
 #     max_retries:      Max mutation retries per run (default 2)
 #   nodes:              Ordered list of node definitions
 #     name:             Unique node identifier (used in logs)
-#     type:             claude | ollama | eval
+#     type:             claude | ollama | eval | python | subprocess
+#     tier:             (claude nodes only) claude | free | free-then-verify
+#                       claude          = default, unchanged Claude call
+#                       free            = free chain only (Groq→Gemini→Ollama), never escalates
+#                       free-then-verify= free chain, gated, escalate to Claude on gate failure
+#                       Escalation costs a free call PLUS a Claude call — check
+#                       `llmroute.telemetry.recommendations()` and flip any node
+#                       escalating >30% of runs to tier: claude.
+#     task_type:        (tier != claude) routing key into ~/.claude/routing/model-registry.json
+#                       e.g. compress | classify | extract | summarize. Default: compress
+#     gate:             (tier != claude) algorithmic accept test — never an LLM call
+#       min_chars:      Reject output shorter than this
+#       max_chars:      Reject output longer than this
+#       require_json:   Output must parse as JSON
+#       require_keys:   List of keys that must be present in the parsed JSON
+#       forbid_patterns:Reject if any of these substrings appear (e.g. refusals)
 #     model:            Model ID string
 #     system:           System prompt (no hardcoded prompts in core — lives here)
 #     prompt_template:  User message template; {input} is replaced with prior node output
