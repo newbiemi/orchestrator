@@ -1,0 +1,476 @@
+{
+  "schema_version": 1,
+  "generator": "projmap/0.1.0",
+  "project": {
+    "slug": "personal_projects/orchestrator",
+    "name": "orchestrator",
+    "root": "personal_projects/orchestrator",
+    "shape": "fastapi",
+    "signals": [
+      "fastapi",
+      "python-cli"
+    ]
+  },
+  "layers": {
+    "structure": {
+      "language_counts": {
+        "py": 23
+      },
+      "node_count_total": 23,
+      "node_count_kept": 23,
+      "omitted_nodes": 0,
+      "nodes": [
+        {
+          "path": "core/claude_node",
+          "lang": "py",
+          "fan_in": 10,
+          "fan_out": 3
+        },
+        {
+          "path": "core/config",
+          "lang": "py",
+          "fan_in": 8,
+          "fan_out": 0
+        },
+        {
+          "path": "core/logger",
+          "lang": "py",
+          "fan_in": 8,
+          "fan_out": 0
+        },
+        {
+          "path": "core/pipeline",
+          "lang": "py",
+          "fan_in": 8,
+          "fan_out": 8
+        },
+        {
+          "path": "core/ollama_node",
+          "lang": "py",
+          "fan_in": 5,
+          "fan_out": 2
+        },
+        {
+          "path": "core/python_node",
+          "lang": "py",
+          "fan_in": 3,
+          "fan_out": 2
+        },
+        {
+          "path": "pipelines/context_summarizer",
+          "lang": "py",
+          "fan_in": 3,
+          "fan_out": 4
+        },
+        {
+          "path": "pipelines/trading",
+          "lang": "py",
+          "fan_in": 3,
+          "fan_out": 4
+        },
+        {
+          "path": "core/memory",
+          "lang": "py",
+          "fan_in": 2,
+          "fan_out": 0
+        },
+        {
+          "path": "core/prompt_optimizer",
+          "lang": "py",
+          "fan_in": 2,
+          "fan_out": 2
+        },
+        {
+          "path": "core/routed_node",
+          "lang": "py",
+          "fan_in": 2,
+          "fan_out": 2
+        },
+        {
+          "path": "core/subprocess_node",
+          "lang": "py",
+          "fan_in": 1,
+          "fan_out": 2
+        },
+        {
+          "path": "deliver_scan",
+          "lang": "py",
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        {
+          "path": "pipelines/px_dashboard",
+          "lang": "py",
+          "fan_in": 1,
+          "fan_out": 2
+        },
+        {
+          "path": "api",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 5
+        },
+        {
+          "path": "core",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 7
+        },
+        {
+          "path": "pipelines",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "runner",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 6
+        },
+        {
+          "path": "scripts/auto_summarize_all",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        {
+          "path": "tests",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        {
+          "path": "tests/test_determinism",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 2
+        },
+        {
+          "path": "tests/test_python_node",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 2
+        },
+        {
+          "path": "tests/test_routed_node",
+          "lang": "py",
+          "fan_in": 0,
+          "fan_out": 3
+        }
+      ],
+      "edge_count_total": 57,
+      "edge_count_kept": 57,
+      "omitted_edges": 0,
+      "edges": [
+        {
+          "from": "api",
+          "to": "core/config"
+        },
+        {
+          "from": "api",
+          "to": "core/logger"
+        },
+        {
+          "from": "api",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "api",
+          "to": "pipelines/context_summarizer"
+        },
+        {
+          "from": "api",
+          "to": "pipelines/trading"
+        },
+        {
+          "from": "core",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core",
+          "to": "core/config"
+        },
+        {
+          "from": "core",
+          "to": "core/logger"
+        },
+        {
+          "from": "core",
+          "to": "core/memory"
+        },
+        {
+          "from": "core",
+          "to": "core/ollama_node"
+        },
+        {
+          "from": "core",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "core",
+          "to": "core/prompt_optimizer"
+        },
+        {
+          "from": "core/claude_node",
+          "to": "core/config"
+        },
+        {
+          "from": "core/claude_node",
+          "to": "core/logger"
+        },
+        {
+          "from": "core/claude_node",
+          "to": "core/ollama_node"
+        },
+        {
+          "from": "core/ollama_node",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core/ollama_node",
+          "to": "core/logger"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/config"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/memory"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/ollama_node"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/prompt_optimizer"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/python_node"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/routed_node"
+        },
+        {
+          "from": "core/pipeline",
+          "to": "core/subprocess_node"
+        },
+        {
+          "from": "core/prompt_optimizer",
+          "to": "core/config"
+        },
+        {
+          "from": "core/prompt_optimizer",
+          "to": "core/ollama_node"
+        },
+        {
+          "from": "core/python_node",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core/python_node",
+          "to": "core/logger"
+        },
+        {
+          "from": "core/routed_node",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core/routed_node",
+          "to": "core/logger"
+        },
+        {
+          "from": "core/subprocess_node",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "core/subprocess_node",
+          "to": "core/logger"
+        },
+        {
+          "from": "pipelines/context_summarizer",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "pipelines/context_summarizer",
+          "to": "core/config"
+        },
+        {
+          "from": "pipelines/context_summarizer",
+          "to": "core/ollama_node"
+        },
+        {
+          "from": "pipelines/context_summarizer",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "pipelines/px_dashboard",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "pipelines/px_dashboard",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "pipelines/trading",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "pipelines/trading",
+          "to": "core/config"
+        },
+        {
+          "from": "pipelines/trading",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "pipelines/trading",
+          "to": "core/python_node"
+        },
+        {
+          "from": "runner",
+          "to": "core/config"
+        },
+        {
+          "from": "runner",
+          "to": "core/logger"
+        },
+        {
+          "from": "runner",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "runner",
+          "to": "pipelines/context_summarizer"
+        },
+        {
+          "from": "runner",
+          "to": "pipelines/px_dashboard"
+        },
+        {
+          "from": "runner",
+          "to": "pipelines/trading"
+        },
+        {
+          "from": "scripts/auto_summarize_all",
+          "to": "pipelines/context_summarizer"
+        },
+        {
+          "from": "tests/test_determinism",
+          "to": "deliver_scan"
+        },
+        {
+          "from": "tests/test_determinism",
+          "to": "pipelines/trading"
+        },
+        {
+          "from": "tests/test_python_node",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "tests/test_python_node",
+          "to": "core/python_node"
+        },
+        {
+          "from": "tests/test_routed_node",
+          "to": "core/claude_node"
+        },
+        {
+          "from": "tests/test_routed_node",
+          "to": "core/pipeline"
+        },
+        {
+          "from": "tests/test_routed_node",
+          "to": "core/routed_node"
+        }
+      ]
+    },
+    "data_model": {
+      "sources": [],
+      "table_count": 0,
+      "tables": [],
+      "enums": []
+    },
+    "routes": {
+      "routes": [],
+      "router": "none",
+      "route_count": 0,
+      "page_count": 0,
+      "api_count": 0,
+      "omitted_routes": 0,
+      "middleware": "",
+      "layouts": []
+    },
+    "process_flow": {
+      "flows": [],
+      "flow_count_total": 0,
+      "flow_count_kept": 0,
+      "omitted_flows": 0
+    },
+    "design": {
+      "tailwind_version": "",
+      "config_file": "",
+      "css_files": [],
+      "tokens": [],
+      "token_count_total": 0,
+      "omitted_tokens": 0,
+      "fonts": [],
+      "components": [],
+      "component_count_total": 0,
+      "omitted_components": 0
+    },
+    "services": {
+      "env_vars": [
+        "ALPACA_API_KEY",
+        "ALPACA_BASE_URL",
+        "ALPACA_EXECUTE",
+        "ALPACA_SECRET_KEY",
+        "ANTHROPIC_API_KEY",
+        "BOT_SCRIPT",
+        "OLLAMA_BASE_URL",
+        "OLLAMA_FALLBACK_MODEL",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID"
+      ],
+      "env_var_count_total": 10,
+      "omitted_env_vars": 0,
+      "detected": [
+        {
+          "name": "Anthropic (Claude)",
+          "via": [
+            "dependency",
+            "env"
+          ]
+        }
+      ]
+    },
+    "build_state": {
+      "claude_md": "CLAUDE.md",
+      "phases": [],
+      "checkbox_total": 0,
+      "checkbox_done": 0,
+      "checklists": [],
+      "decisions": [
+        "context/decisions/2026-05-16 - Orchestrator score persistence defers store_memory to after loop.md",
+        "context/decisions/2026-05-17 - qwen2.5-coder retained over llama3.2 for Ollama compression.md"
+      ],
+      "decision_count_total": 2,
+      "omitted_decisions": 0,
+      "todo_count": 0
+    },
+    "cross_project": {
+      "status": "pending",
+      "note": "computed at the portfolio root; see Phase 5"
+    }
+  },
+  "truncated": {},
+  "warnings": []
+}
