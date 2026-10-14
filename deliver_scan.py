@@ -314,18 +314,35 @@ def send_telegram(text: str) -> None:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def main():
+def run_once(classes: list[str] | None = None, top_n: int | None = None,
+              send: bool = True) -> str:
+    """
+    Run one multi-asset scan cycle and return the built digest message.
+
+    classes: subset of asset class names to scan (default: all of ASSET_CLASSES).
+    top_n:   override symbol count for every scanned class (default: each class's
+             own default count from ASSET_CLASSES).
+    send:    push the message to Telegram (default True — matches legacy behavior).
+
+    Shared by the scheduled-task entry point (main(), below) and
+    bots/scan_controller.py, so both paths build an identical digest.
+    """
     now = datetime.now()
     slot = "AM" if now.hour < 15 else "PM"
     timestamp = now.strftime("%d %b %Y %H:%M WIB")
     print(f"[deliver_scan] {now.isoformat()} slot={slot}")
 
+    active = [(ac, n, icon) for ac, n, icon in ASSET_CLASSES if not classes or ac in classes]
+    if not active:
+        active = ASSET_CLASSES
+
     sections = []
     llm_context_lines = []
 
-    for asset_class, top_n, icon in ASSET_CLASSES:
+    for asset_class, default_n, icon in active:
+        n = top_n if top_n is not None else default_n
         print(f"[deliver_scan] scanning {asset_class}…")
-        signals, error = _run_scan(asset_class, top_n)
+        signals, error = _run_scan(asset_class, n)
         sections.append(_section(icon, asset_class, signals, error))
 
         # Top signals for LLM context (actionable only)
@@ -347,8 +364,14 @@ def main():
         msg_parts += ["", "💬 *Cross-Asset Digest*", interpretation]
 
     msg = "\n".join(msg_parts)
-    send_telegram(msg)
-    print(f"[deliver_scan] delivered {len(msg)} chars")
+    if send:
+        send_telegram(msg)
+        print(f"[deliver_scan] delivered {len(msg)} chars")
+    return msg
+
+
+def main():
+    run_once()
 
 
 if __name__ == "__main__":

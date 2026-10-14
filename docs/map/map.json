@@ -464,11 +464,14 @@
       ],
       "decision_count_total": 2,
       "omitted_decisions": 0,
-      "todo_count": 0
+      "todo_count": 0,
+      "do_not_touch": [],
+      "do_not_touch_count_total": 0,
+      "omitted_do_not_touch": 0
     },
     "cross_project": {
-      "status": "pending",
-      "note": "computed at the portfolio root; see Phase 5"
+      "status": "portfolio",
+      "note": "cross-project aggregation lives in the portfolio map: `docs/map/PORTFOLIO.md` at the monorepo root"
     }
   },
   "truncated": {},

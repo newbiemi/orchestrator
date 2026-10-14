@@ -2,7 +2,7 @@
 
 **Shape:** fastapi &middot; **Signals:** fastapi, python-cli
 
-**Status:** CLAUDE.md found, no phase/step markers in it
+**Status:** CLAUDE.md found, not phase-structured - carries 2 decisions on file
 
 **Routes:** 0 (0 pages, 0 api)
 **Tables:** 0
@@ -142,7 +142,7 @@ _no App Router detected (no `app/` or `src/app/`)_
 <details>
 <summary>Process flow</summary>
 
-_no key routes found (a route must reference a table by name, e.g. `.from('table')`, to appear here)_
+_no key routes found - a route appears here only if its handler (or something it imports) names a known table, either as a string literal or in a SQL `FROM`/`JOIN`/`INTO`/`UPDATE` position_
 
 </details>
 
@@ -194,6 +194,6 @@ _no key routes found (a route must reference a table by name, e.g. `.from('table
 <details>
 <summary>Cross-project</summary>
 
-_status: pending - computed at the portfolio root; see Phase 5_
+_cross-project aggregation lives in the portfolio map: `docs/map/PORTFOLIO.md` at the monorepo root_
 
 </details>

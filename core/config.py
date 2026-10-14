@@ -59,6 +59,14 @@ def get_optimizer_config(pipeline_name: str) -> dict:
     }
 
 
+def get_default_claude_model() -> str:
+    """Return the default Claude model from pipelines.yaml `defaults.claude_model`."""
+    try:
+        return _load_all().get("defaults", {}).get("claude_model", "claude-sonnet-4-6")
+    except Exception:
+        return "claude-sonnet-4-6"
+
+
 def get_memory_context_n(pipeline_name: str) -> int:
     """Return how many past runs to inject as memory context (Phase 7)."""
     return load_pipeline_config(pipeline_name).get("memory_context_n", 5)

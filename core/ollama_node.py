@@ -16,7 +16,7 @@ load_dotenv()
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = "qwen2.5-coder"
-REQUEST_TIMEOUT = 300.0  # seconds — local models can be slow on large inputs
+REQUEST_TIMEOUT = 90.0  # seconds — fail fast; 300s masked VRAM-swap stalls
 
 # ── Circuit breaker ────────────────────────────────────────────────────────────
 # After CB_THRESHOLD consecutive failures, fail fast for CB_RESET_SECS seconds
@@ -91,46 +91,74 @@ class OllamaNode:
             "options": {"temperature": self.temperature},
         }
         t0 = time.perf_counter()
-        try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                resp = client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
-                resp.raise_for_status()
-                data = resp.json()
+        _last_transient: Optional[Exception] = None
 
-            output = data["message"]["content"]
-            tokens = data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
-            latency = int((time.perf_counter() - t0) * 1000)
+        for attempt in range(2):  # 1 try + 1 retry on timeout/connect failure
+            if attempt:
+                time.sleep(2)
+            try:
+                with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+                    resp = client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
 
-            _cb_success()
-            log_run(
-                pipeline=pipeline,
-                node=node,
-                model=self.model,
-                input_text=input_text,
-                output_text=output,
-                latency_ms=latency,
-                token_count=tokens,
-            )
-            return NodeResult(
-                output=output,
-                model=self.model,
-                token_count=tokens,
-                latency_ms=latency,
-                pipeline=pipeline,
-                node=node,
-            )
-        except Exception as exc:
-            _cb_failure()
-            latency = int((time.perf_counter() - t0) * 1000)
-            log_run(
-                pipeline=pipeline,
-                node=node,
-                model=self.model,
-                input_text=input_text,
-                output_text="",
-                latency_ms=latency,
-                token_count=0,
-                status="error",
-                error=str(exc),
-            )
-            raise
+                output = data["message"]["content"]
+                tokens = data.get("prompt_eval_count", 0) + data.get("eval_count", 0)
+                latency = int((time.perf_counter() - t0) * 1000)
+
+                _cb_success()
+                log_run(
+                    pipeline=pipeline,
+                    node=node,
+                    model=self.model,
+                    input_text=input_text,
+                    output_text=output,
+                    latency_ms=latency,
+                    token_count=tokens,
+                )
+                return NodeResult(
+                    output=output,
+                    model=self.model,
+                    token_count=tokens,
+                    latency_ms=latency,
+                    pipeline=pipeline,
+                    node=node,
+                )
+            except (httpx.ReadTimeout, httpx.ConnectError) as exc:
+                _last_transient = exc
+                continue  # retry once
+            except Exception as exc:
+                _cb_failure()
+                latency = int((time.perf_counter() - t0) * 1000)
+                log_run(
+                    pipeline=pipeline,
+                    node=node,
+                    model=self.model,
+                    input_text=input_text,
+                    output_text="",
+                    latency_ms=latency,
+                    token_count=0,
+                    status="error",
+                    error=str(exc),
+                )
+                raise
+
+        # Both attempts timed out / connection failed
+        _cb_failure()
+        latency = int((time.perf_counter() - t0) * 1000)
+        err_msg = (
+            f"Ollama not responding at {OLLAMA_BASE_URL} after 2 attempts "
+            f"({REQUEST_TIMEOUT}s each). Run 'ollama ps' and 'ollama serve'."
+        )
+        log_run(
+            pipeline=pipeline,
+            node=node,
+            model=self.model,
+            input_text=input_text,
+            output_text="",
+            latency_ms=latency,
+            token_count=0,
+            status="error",
+            error=err_msg,
+        )
+        raise RuntimeError(err_msg) from _last_transient

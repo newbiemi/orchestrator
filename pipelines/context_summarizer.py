@@ -20,7 +20,7 @@ from rich.console import Console
 from core.pipeline import Pipeline, EvalMarker
 from core.claude_node import ClaudeNode
 from core.ollama_node import OllamaNode
-from core.config import load_pipeline_config
+from core.config import load_pipeline_config, get_default_claude_model
 
 load_dotenv()
 console = Console(legacy_windows=False)
@@ -116,7 +116,7 @@ class ContextSummarizerPipeline(Pipeline):
         eval_cfg  = next((n for n in cfg.get("nodes", []) if n.get("type") == "eval"), {})
 
         final_node = ClaudeNode(
-            model=final_cfg.get("model", "claude-sonnet-4-5"),
+            model=final_cfg.get("model") or get_default_claude_model(),
             system=final_cfg.get("system", "You produce structured CLAUDE.md-ready project summaries."),
             prompt_template=final_cfg.get("prompt_template"),
             max_tokens=int(final_cfg.get("max_tokens", 2048)),

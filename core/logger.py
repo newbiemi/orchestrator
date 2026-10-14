@@ -43,6 +43,14 @@ def init_db() -> None:
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline ON runs(pipeline)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON runs(timestamp)")
+        # Schema migration: add cache columns to existing DBs (SQLite has no ADD COLUMN IF NOT EXISTS)
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(runs)")}
+        for col, typedef in [
+            ("cache_creation_input_tokens", "INTEGER"),
+            ("cache_read_input_tokens",     "INTEGER"),
+        ]:
+            if col not in existing:
+                conn.execute(f"ALTER TABLE runs ADD COLUMN {col} {typedef}")
     _initialized = True
 
 
@@ -57,6 +65,8 @@ def log_run(
     token_count: int,
     status: str = "ok",
     error: Optional[str] = None,
+    cache_creation_input_tokens: Optional[int] = None,
+    cache_read_input_tokens: Optional[int] = None,
 ) -> int:
     """Insert a run record. Returns the new row id."""
     init_db()
@@ -65,10 +75,12 @@ def log_run(
         cur = conn.execute(
             """INSERT INTO runs
                (pipeline, node, model, input_text, output_text,
-                latency_ms, token_count, status, error, timestamp)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                latency_ms, token_count, status, error, timestamp,
+                cache_creation_input_tokens, cache_read_input_tokens)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (pipeline, node, model, input_text, output_text,
-             latency_ms, token_count, status, error, ts),
+             latency_ms, token_count, status, error, ts,
+             cache_creation_input_tokens, cache_read_input_tokens),
         )
         return cur.lastrowid
 
